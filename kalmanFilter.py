@@ -104,11 +104,11 @@ def main():
                     [0,0,1,0,0,0]]) # 
 
     # Process noise covariance matrix R and measurement noise covariance matrix Q
-    R = np.eye(6) * 0.01 # Process noise covariance matrix
-    Q = np.eye(3) * 4.0 # Measurement noise covariance matrix
+    R = np.eye(6) * 0.001 # Process noise covariance matrix
+    Q = np.eye(3) * 5.0 # Measurement noise covariance matrix
 
     # Initial state and covariance
-    initial_x = np.array([[0], # x position 
+    initial_x = np.array([[2.0], # x position 
                           [0], # y position
                           [0], # z position
                           [0.1], # x velocity
@@ -122,7 +122,7 @@ def main():
                             [0,0,0,0,1,0],
                             [0,0,0,0,0,1]])
 
-    u  = np.array([[0.1],
+    u  = np.array([[0.3],
                    [0],
                    [0]])
 
