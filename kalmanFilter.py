@@ -2,6 +2,7 @@
 A kalman filter implementation from scratch from simple kalman all the way to extended kalman filter.
 """
 
+import sympy as sp
 import numpy as np
 
 
@@ -76,103 +77,88 @@ class simpleKalman():
 
 
 class extendedKalman(simpleKalman):
-    def __init__(self, A, initial_x, B, u, initial_E, C, R, Q):
-        super().__init__(A, initial_x, B, u, initial_E, C, R, Q)
-    # to do
+    def __init__(self, G, initial_x, B, u, initial_E, H, R, Q):
+        super().__init__(G, initial_x, B, u, initial_E, H, R, Q)
+
+    def filter(self, z):
+        """
+        The main idea in the extended Kalman filter is to linearize the non-linear system.
+        The extended kalman filter uses the linearization via Taylor expansion.
+        We use matrix known as the Jacobian matrix to linearize the system.
+
+        One example of a jacobian matrix is the following:
+        f(x) = [x1^2 + x2^2, x1*x2]
+
+        J = [2*x1, 2*x2]
+            [x2, x1]
+
+        Where: 
+        f(x) = the non-linear function
+        J = the jacobian matrix
+        2*x1, 2*x2, x2, x1 = the partial derivatives of f(x) with respect to x1 and x2
+
+        You can notice that the first row of the jacobian matrix is the partial derivatives of the first element of f(x) with respect to x1 and x2,
+        and the second row is the partial derivatives of the second element of f(x) with respect to x1 and x2.
+    
+        """
+
+        predicted_x, predicted_cov = self.prediction(self.x, self.E)
+        updated_x, updated_cov = self.update(predicted_x, predicted_cov, z)
+
+        self.x = updated_x
+        self.E = updated_cov
+
+    def prediction(self, state_vector, functions, prev_E):
+        """
+        The prediction step is the same as in the simple kalman filter, 
+        but we need to linearize the non-linear functions using the Jacobian matrix.
+        """
+        sym = [] # A list to store the symbols of the state vector
+        exp = [] # A list to store the expressions of the functions
+
+        for n in range(np.size(state_vector)): # Loop through the state vector wich is the same size as the functions vector
+            symbol = sp.symbols(state_vector[n][0])# Create a symbol for each element of the state vector
+            sym.append([symbol]) # append the symbol as a list to the sym list
+
+            expresion = sp.sympify(functions[n][0])
+            exp.append([expresion])
 
 
+        arr_sym = np.array(sym)
+        arr_exp= np.array(exp)
+
+        # print(arr_sym)
+        # print(arr_exp)
+
+        
+        row_jacobian = [] # A list to store the rows of the jacobian matrix
+        for e in range(np.size(arr_exp)): # we iterate for each expression
+           derivatives = [] # for each expression we create a list to store the partial derivatives
+           for s in range(np.size(arr_sym)): # we iterate for each symbol we  need to iterate in order to get the partial derivative of each expression with respect to each symbol
+                partial_derivative = sp.Derivative(arr_exp[e][0],arr_sym[s][0]) # we calculate the partial derivative of the expression with respect to the symbol
+                # print(partial_derivative)
+                derivatives.append(partial_derivative.doit()) # we add the calculated partial derivative to the list
+
+                # print(derivatives)
+
+           row_jacobian.append(derivatives) # the calculated derivatives are for the first function with respect to all the symbols.
+
+        jacobian = np.array(row_jacobian) # at the end we convert the list to a numpy array to be able to use it in the kalman filter equations
+            
+        print(f"The Jacobian is {jacobian}")
+
+    def update(self, predicted_x, predicted_cov, z):
+        """The update step is the same as the simple kalman"""
+        super().update(self, predicted_x, predicted_cov)
+     
 def main():
+    import testSimple # import testSimple file
+    import testExtended # import testExtended file
 
-    # Test for simpleKalman with simple MRUA equations
-    dt = 0.1
-    A = np.array([[1,0,0,dt,0,0],
-                    [0,1,0,0,dt,0],
-                    [0,0,1,0,0,dt],
-                    [0,0,0,1,0,0],
-                    [0,0,0,0,1,0],
-                    [0,0,0,0,0,1]])
+    # testSimple.test()
+    testExtended.test()
+
     
-    B = np.array([[0.5*dt**2,0,0],
-                    [0,0.5*dt**2,0],
-                    [0,0,0.5*dt**2],
-                    [dt,0,0],
-                    [0,dt,0],
-                    [0,0,dt]])
-    
-    C = np.array([[1,0,0,0,0,0],
-                    [0,1,0,0,0,0],
-                    [0,0,1,0,0,0]]) # 
-
-    # Process noise covariance matrix R and measurement noise covariance matrix Q
-    R = np.eye(6) * 0.001 # Process noise covariance matrix
-    Q = np.eye(3) * 5.0 # Measurement noise covariance matrix
-
-    # Initial state and covariance
-    initial_x = np.array([[2.0], # x position 
-                          [0], # y position
-                          [0], # z position
-                          [0.1], # x velocity
-                          [0], # y velocity
-                          [0]]) # z velocity
-    
-    initial_E = np.array([[1,0,0,0,0,0],
-                            [0,1,0,0,0,0],
-                            [0,0,1,0,0,0],
-                            [0,0,0,1,0,0],
-                            [0,0,0,0,1,0],
-                            [0,0,0,0,0,1]])
-
-    u  = np.array([[0.3],
-                   [0],
-                   [0]])
-
-    # Plot the x position 
-    import matplotlib.pyplot as plt
-
-    pos = []
-    noisy_pos_x = []
-    noisy_pos_y = []
-    noisy_pos_z = []
-    kalman_pose = []
-
-    #initial state
-    x = initial_x
-
-    # plot n steps
-    n = 51 # change depending of how much steps you want
-
-    kalman = simpleKalman(A, initial_x, B, u, initial_E, C, R, Q)
-
-    for _ in range(n):
-        x = A@x + B@u
-        # print(f"Step {n} : {x}")
-        pos.append(x[0])
-
-        # we now add noise 
-        noise_x = abs(np.random.normal(x[0], 0.2))
-        noisy_pos_x.append(noise_x)
-
-
-        noisy_pos = np.array([noise_x,
-                              [0],
-                              [0]])
-
-        #kalman filer test
-        kalman.filter(noisy_pos)
-        kalman_pose.append(kalman.x[0])
-
-
-
-
-    # print(kalman_pose, end=" ")
-    print(noisy_pos)
-
-    plt.plot(np.arange(0,n,1), pos, label='True X', color='green', linestyle='dashed')
-    plt.plot( np.arange(0,n,1), noisy_pos_x, label='Noisy X', color='blue')
-    plt.plot(np.arange(0,n,1), kalman_pose, label='Kalman Filtered X', color='red')
-    plt.legend()
-    plt.show()
-
 
 
 if __name__ == "__main__":
