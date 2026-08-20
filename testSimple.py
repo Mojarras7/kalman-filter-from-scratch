@@ -1,5 +1,6 @@
 import kalmanFilter
 import numpy as np
+import matplotlib.pyplot as plt
 
 def test():
     """
@@ -47,8 +48,7 @@ def test():
                     [0],
                     [0]])
 
-    # Plot the x position 
-    import matplotlib.pyplot as plt
+
 
     pos = []
     noisy_pos_x = []
@@ -68,7 +68,7 @@ def test():
         pos.append(x[0])
 
         # we now add noise 
-        noise_x = abs(np.random.normal(x[0], 0.2))
+        noise_x = np.random.normal(x[0], 0.2)
         noisy_pos_x.append(noise_x)
 
 
@@ -83,8 +83,11 @@ def test():
     # print(kalman_pose, end=" ")
     print(noisy_pos)
 
-    plt.plot(np.arange(0,n,1), pos, label='True X', color='green', linestyle='dashed')
-    plt.plot( np.arange(0,n,1), noisy_pos_x, label='Noisy X', color='blue')
+    plt.plot(np.arange(0,n,1), pos, label='True X', color='blue', linestyle='dashed')
+    plt.plot( np.arange(0,n,1), noisy_pos_x, label='Noisy X', color='lightgreen')
     plt.plot(np.arange(0,n,1), kalman_pose, label='Kalman Filtered X', color='red')
     plt.legend()
     plt.show()
+
+if __name__ == '__main__':
+    test()

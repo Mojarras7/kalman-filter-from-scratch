@@ -76,11 +76,18 @@ class simpleKalman():
         return updated_x, updated_cov
 
 
-class extendedKalman(simpleKalman):
-    def __init__(self, G, initial_x, B, u, initial_E, H, R, Q):
-        super().__init__(G, initial_x, B, u, initial_E, H, R, Q)
+class extendedKalman():
+    def __init__(self, state_vector,functions,initial_E, R, H, Q):
+        self.state_vector = state_vector
+        self.functions = functions
+        self.E = initial_E
+        self.R = R
+        self.H = H
+        self.Q = Q
 
-    def filter(self, z):
+        self.getEvaluated(self.state_vector, self.functions)
+        
+    def filter(self, current_states, z):
         """
         The main idea in the extended Kalman filter is to linearize the non-linear system.
         The extended kalman filter uses the linearization via Taylor expansion.
@@ -102,17 +109,14 @@ class extendedKalman(simpleKalman):
     
         """
 
-        predicted_x, predicted_cov = self.prediction(self.x, self.E)
+        predicted_x, predicted_cov = self.prediction(current_states, self.E)
         updated_x, updated_cov = self.update(predicted_x, predicted_cov, z)
 
         self.x = updated_x
         self.E = updated_cov
 
-    def prediction(self, state_vector, functions, prev_E):
-        """
-        The prediction step is the same as in the simple kalman filter, 
-        but we need to linearize the non-linear functions using the Jacobian matrix.
-        """
+    def getJacobian(self, state_vector, functions, current_states):
+        
         sym = [] # A list to store the symbols of the state vector
         exp = [] # A list to store the expressions of the functions
 
@@ -131,34 +135,85 @@ class extendedKalman(simpleKalman):
         # print(arr_exp)
 
         
-        row_jacobian = [] # A list to store the rows of the jacobian matrix
+        row_jacobian_sym = [] # A list to store the rows of the jacobian matrix
+        row_jacobian = []
         for e in range(np.size(arr_exp)): # we iterate for each expression
-           derivatives = [] # for each expression we create a list to store the partial derivatives
+           derivatives_sym = [] # for each expression we create a list to store the partial derivatives
+           derivatives = []
            for s in range(np.size(arr_sym)): # we iterate for each symbol we  need to iterate in order to get the partial derivative of each expression with respect to each symbol
                 partial_derivative = sp.Derivative(arr_exp[e][0],arr_sym[s][0]) # we calculate the partial derivative of the expression with respect to the symbol
-                # print(partial_derivative)
-                derivatives.append(partial_derivative.doit()) # we add the calculated partial derivative to the list
+                partial_derivative = partial_derivative.doit()
 
-                # print(derivatives)
+                function_derivative = sp.lambdify(arr_sym[s][0], partial_derivative)
+                derivatives.append(function_derivative)
 
-           row_jacobian.append(derivatives) # the calculated derivatives are for the first function with respect to all the symbols.
+                derivatives_sym.append(partial_derivative) # we add the calculated partial derivative to the list
 
-        jacobian = np.array(row_jacobian) # at the end we convert the list to a numpy array to be able to use it in the kalman filter equations
-            
+           row_jacobian.append(derivatives)
+           row_jacobian_sym.append(derivatives_sym) # the calculated derivatives are for the first function with respect to all the symbols.
+
+        jacobian_sym = np.array(row_jacobian_sym) # at the end we convert the list to a numpy array to be able to use it in the kalman filter equations
+        jacobian = np.array(row_jacobian)
+        print(f"The Symbolical Jacobian is {jacobian_sym} " )
         print(f"The Jacobian is {jacobian}")
+
+        # Now we evaluate the jacobian
+
+        row_eval = []
+        for e in range(np.size(arr_exp)):
+            evaluated = []
+            for s in range(np.size(arr_sym)):
+                evaluated.append(jacobian[e][s](current_states[s][0]))
+            row_eval.append(evaluated)
+
+        eval_jacobian = np.array(row_eval)
+
+        print(eval_jacobian)
+
+        return eval_jacobian
+                
+
+    def getEvaluated(self,state_vector, functions):
+        self.f_eval = []
+        for n in range(len(functions)):
+            sym = sp.symbols(state_vector[n][0])
+            expr = sp.sympify(functions[n][0])
+            func_num = sp.lambdify(sym, expr, modules='numpy')
+            self.f_eval.append(func_num)
+
+    def prediction(self, current_states, prev_E):
+        """
+        The prediction step is the same as in the simple kalman filter, 
+        but we need to linearize the non-linear functions using the Jacobian matrix.
+        """
+        self.G =  self.getJacobian(self.state_vector, self.functions, current_states)
+
+        predicted_x = []
+        for n in range(len(self.f_eval)):
+            val = self.f_eval[n](current_states[n][0])
+            predicted_x.append([val])
+
+        predicted_x = np.array(predicted_x) 
+        predicted_cov = self.G@prev_E@self.G.transpose() + self.R
+
+        return predicted_x, predicted_cov
 
     def update(self, predicted_x, predicted_cov, z):
         """The update step is the same as the simple kalman"""
-        super().update(self, predicted_x, predicted_cov)
+        transH = self.H.transpose()
+        K = predicted_cov@transH@np.linalg.inv(self.H@predicted_cov@transH + self.Q)
+
+        updated_cov = predicted_cov - K@self.H@predicted_cov
+        updated_x = predicted_x + K@(z - self.H@predicted_x)
+
+        return updated_x, updated_cov
      
 def main():
     import testSimple # import testSimple file
     import testExtended # import testExtended file
 
-    # testSimple.test()
+    testSimple.test()
     testExtended.test()
-
-    
 
 
 if __name__ == "__main__":
