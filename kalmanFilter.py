@@ -116,6 +116,11 @@ class extendedKalman():
         self.E = updated_cov
 
     def getJacobian(self, state_vector, functions, current_states):
+        """
+        This function is used to calculate the jacobian matrix of the non-linear functions with respect to the state vector.
+        I used my owm implementation of the jacobian matrix calculation using sympy library, but you can also use the sympy.jacobian() function to calculate the jacobian matrix.
+        This funcition will return the evaluated jacobian matrix with respect to the current state vector. Also will show the symbolic jacobian matrix.
+        """
         
         sym = [] # A list to store the symbols of the state vector
         exp = [] # A list to store the expressions of the functions
@@ -174,6 +179,10 @@ class extendedKalman():
                 
 
     def getEvaluated(self,state_vector, functions):
+        """
+        This function is used to evaluate the functions of the system with respect to the state vector.
+        We use the sympy library to create a symbolic representation of the functions and then we use the lambdify function to create a numerical representation of the functions.
+        """
         self.f_eval = []
         for n in range(len(functions)):
             sym = sp.symbols(state_vector[n][0])
